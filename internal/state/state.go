@@ -43,7 +43,7 @@ func Read(path string) *usage.Usage {
 	if err != nil {
 		return nil
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }() // read-only: a close error loses nothing
 	data, err := io.ReadAll(io.LimitReader(f, maxSize+1))
 	if err != nil || len(data) > maxSize {
 		return nil
