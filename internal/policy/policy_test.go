@@ -1,5 +1,5 @@
 // Package policy holds repository-wide guarantees that are tested like
-// behavior. paceline-desktop runs in the background with the user's
+// behavior. paceline-tray runs in the background with the user's
 // privileges and reads Claude Code's OAuth token, so what each package is
 // allowed to do is part of its contract.
 package policy
@@ -19,7 +19,7 @@ import (
 
 const (
 	root   = "../.."
-	module = "github.com/rogadev/paceline-desktop"
+	module = "github.com/rogadev/paceline-tray"
 )
 
 // restricted maps a sensitive import to the only package directories allowed

@@ -1,4 +1,4 @@
-// Package usage describes the Claude plan limits paceline-desktop tracks and
+// Package usage describes the Claude plan limits paceline-tray tracks and
 // the sources that report them.
 //
 // Every source normalizes to the same Usage value, so the tray, the MCP

@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/rogadev/paceline-desktop/internal/usage"
+	"github.com/rogadev/paceline-tray/internal/usage"
 )
 
 const (
@@ -32,14 +32,14 @@ func DefaultPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "paceline-desktop", "usage.json"), nil
+	return filepath.Join(dir, "paceline-tray", "usage.json"), nil
 }
 
 // Read loads the stored reading. It returns nil for a missing, oversized,
 // corrupt, wrong-version, or invalid file, since every one of those means
 // "fetch a fresh reading".
 func Read(path string) *usage.Usage {
-	f, err := os.Open(path) //nolint:gosec // G304: path is paceline-desktop's own state file.
+	f, err := os.Open(path) //nolint:gosec // G304: path is paceline-tray's own state file.
 	if err != nil {
 		return nil
 	}

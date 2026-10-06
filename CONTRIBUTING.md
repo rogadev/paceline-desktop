@@ -7,13 +7,13 @@
 
 ## Commit messages
 
-paceline-desktop uses [Conventional Commits](https://www.conventionalcommits.org), the same as paceline: `feat:` for a new feature, `fix:` for a bug fix, and `docs:`, `test:`, `ci:`, `chore:`, or `refactor:` for everything else. Once releases are automated (milestone 6 in the [design](docs/design.md#milestones)), these types choose the version number.
+paceline-tray uses [Conventional Commits](https://www.conventionalcommits.org), the same as paceline: `feat:` for a new feature, `fix:` for a bug fix, and `docs:`, `test:`, `ci:`, `chore:`, or `refactor:` for everything else. Once releases are automated (milestone 6 in the [design](docs/design.md#milestones)), these types choose the version number.
 
 Messages are checked by a local `commit-msg` hook, installed when you run `npm install`, and by CI on every pull request.
 
 ## Development
 
-paceline-desktop is Go (1.26 or later). Node.js runs only commitlint.
+paceline-tray is Go (1.26 or later). Node.js runs only commitlint.
 
 ```sh
 npm install            # commitlint and the commit-msg hook

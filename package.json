@@ -1,7 +1,7 @@
 {
-  "name": "paceline-desktop-tooling",
+  "name": "paceline-tray-tooling",
   "private": true,
-  "description": "Tooling for paceline-desktop. paceline-desktop itself is Go (see go.mod); Node runs only commitlint.",
+  "description": "Tooling for paceline-tray. paceline-tray itself is Go (see go.mod); Node runs only commitlint.",
   "license": "MIT",
   "type": "module",
   "engines": {

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rogadev/paceline-desktop/internal/usage"
+	"github.com/rogadev/paceline-tray/internal/usage"
 )
 
 var now = time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
@@ -143,7 +143,7 @@ func TestDefaultPath(t *testing.T) {
 	if err != nil {
 		t.Skipf("no cache dir on this machine: %v", err)
 	}
-	if filepath.Base(path) != "usage.json" || filepath.Base(filepath.Dir(path)) != "paceline-desktop" {
+	if filepath.Base(path) != "usage.json" || filepath.Base(filepath.Dir(path)) != "paceline-tray" {
 		t.Errorf("DefaultPath = %q", path)
 	}
 }
