@@ -1,12 +1,21 @@
-# paceline-desktop design
+# paceline-tray design
 
-This is the working design for paceline-desktop. It builds on the research in the original findings note (October 1, 2026) and records the decisions made since, the facts checked on a real machine, and the questions still open.
+This is the working design for paceline-tray. It builds on the research in the original findings note (October 1, 2026) and records the decisions made since, the facts checked on a real machine, and the questions still open.
+
+The project started as paceline-desktop, a companion for Claude Desktop, which has no status line. On October 6, 2026, Claude Desktop gained a built-in usage feature that made that version redundant, so the project was retargeted at Claude Code users and renamed. The research on data sources and credentials carries over unchanged.
 
 ## Goal
 
-Give Claude Desktop users what [paceline](https://github.com/rogadev/paceline) gives Claude Code users: an always-visible answer to "how much of my weekly limit can I spend today?"
+Give Claude Code users an answer to "how much of my weekly limit can I spend today?" that's visible outside a Claude Code session.
 
-Claude Desktop has no status line hook. The `statusLine` setting is ignored there ([anthropics/claude-code#41456](https://github.com/anthropics/claude-code/issues/41456)), and the footer ring shows context and plan usage only on click, with no pacing. Other tools work around this with macOS-only menu bar apps or by patching Desktop. Nothing cross-platform offers pacing, which is paceline's differentiator.
+[paceline](https://github.com/rogadev/paceline) already shows that answer in Claude Code's status line, but the status line has limits:
+
+- It's visible only while a session is open and its terminal is in front of you.
+- It updates only when Claude Code renders it, so it goes stale while you're idle.
+- With several sessions open, there's no single place to look.
+- Before the first session of the day, there's nothing to look at, which is exactly when you'd plan the day's work.
+
+paceline-tray fills those gaps with a tray icon that's always there, and lets Claude itself check the budget through an MCP server.
 
 ## Product shape
 
@@ -14,20 +23,20 @@ Two binaries, for Windows, macOS, and Linux:
 
 | Binary | What it does |
 |---|---|
-| `paceline-desk` | A tray (menu bar) app. It owns polling, writes the shared state file, and shows the pace state at all times. |
-| `paceline-mcp` | A stdio MCP server that Claude Desktop launches. It answers "how's my budget today?" from the state file. |
+| `paceline-tray` | A tray (menu bar) app. It owns polling, writes the shared state file, and shows the pace state at all times. |
+| `paceline-mcp` | A stdio MCP server that Claude Code launches. It answers "how's my budget today?" from the state file. |
 
 They're separate binaries because the tray app on Windows must be built with `-H windowsgui` (no console window), and an MCP server needs a working stdin and stdout.
 
 ### What the tray shows
 
-Only the parts of paceline that matter to a chat user:
+The pace-related parts of paceline:
 
 - Today's budget and how much of it is left, with the pace arrow (▲ room to push, ▼ ease off, ● about even).
 - Session (five-hour) and week percentages left, and their reset times.
 - How fresh the reading is, and where it came from.
 
-Branch, project folder, context, cache, and duration segments don't apply to Desktop and are left out.
+Branch, project folder, context, cache, and duration segments are per-session, so they stay in the status line and are left out of the tray.
 
 Platform limits shape the display:
 
@@ -39,7 +48,7 @@ The menu repeats the full line, the reset times, the data source and its age, "R
 
 ### MCP tools
 
-Read-only, both answered from the state file:
+`paceline-mcp` is registered with Claude Code (`claude mcp add paceline -- paceline-mcp`), so Claude can check the budget on its own, for example before it starts a long task or a batch of subagents, and you can ask it directly. Read-only, both answered from the state file:
 
 - `get_usage`: session and week percentages, reset times, the source, and the reading's age.
 - `get_today_budget`: today's budget, spent, left, the pace direction, and the same freshness fields.
@@ -63,11 +72,11 @@ paceline gains an opt-in setting that writes Claude Code's `rate_limits` payload
 }
 ```
 
-The feed is only as fresh as the last Claude Code render. paceline-desktop uses it when it's newer than the last OAuth reading and less than 10 minutes old.
+The feed is only as fresh as the last Claude Code render. paceline-tray uses it when it's newer than the last OAuth reading and less than 10 minutes old. Since every paceline-tray user also runs Claude Code with paceline, the feed covers most of the day on its own.
 
 ### 2. The OAuth usage endpoint (fallback)
 
-`GET https://api.anthropic.com/api/oauth/usage` with Claude Code's stored OAuth access token. The endpoint is **undocumented** and could change or disappear. Poll every 5 minutes with jitter, back off exponentially to 30 minutes on 429 or 5xx responses, and allow "Refresh now" at most once a minute.
+`GET https://api.anthropic.com/api/oauth/usage` with Claude Code's stored OAuth access token. It fills the gaps the feed leaves: before the first session of the day, and while every session is idle. The endpoint is **undocumented** and could change or disappear. Poll every 5 minutes with jitter, back off exponentially to 30 minutes on 429 or 5xx responses, and allow "Refresh now" at most once a minute.
 
 Where the token lives:
 
@@ -85,22 +94,15 @@ What the check on Windows found:
 - **The same file also holds every MCP server's OAuth tokens and client secrets** under `mcpOAuth`. `internal/creds` must decode only `claudeAiOauth.accessToken` and `expiresAt` into a narrow struct, never keep the rest in memory, never log any of it, and never write to the file.
 - The access token expires within hours. On the test machine it had about 4 hours left shortly after Claude Code refreshed it. The refresh token had about 6 days left.
 
-## The biggest open risk: token expiry
+## Token expiry
 
-The findings flagged that users who never signed in to Claude Code have no token. The check above makes it sharper: **even users who signed in once have a usable token only for a few hours after Claude Code last refreshed it.** For a Desktop-only user, the OAuth fallback stops working the same day.
+A stored token is usable only for a few hours after Claude Code last refreshed it. For a Claude Code user this is a small gap rather than a blocker: any session refreshes the token, and while a session is active the feed file is fresher anyway. The gap that remains is the first look of the day, when the feed is stale and the token may have expired overnight.
 
-paceline-desktop could refresh the token itself, but refresh tokens usually rotate. Using one would likely invalidate the copy Claude Code holds and sign the user out of Claude Code, or race Claude Code writing the same file. Writing to a file that also holds other services' secrets is a risk paceline-desktop shouldn't take.
+paceline-tray could refresh the token itself, but refresh tokens usually rotate. Using one would likely invalidate the copy Claude Code holds and sign the user out of Claude Code, or race Claude Code writing the same file. Writing to a file that also holds other services' secrets is a risk paceline-tray shouldn't take.
 
-**Decision for v1: read-only, never refresh.** When the token is missing or expired, the tray shows a clear "Open Claude Code once to refresh your sign-in" state instead of numbers, and keeps the last reading with its age.
+**Decision for v1: read-only, never refresh.** When the feed is stale and the token is missing or expired, the tray shows a clear "Open Claude Code to refresh your reading" state instead of numbers, and keeps the last reading with its age.
 
-Options to evaluate before a non-technical rollout:
-
-1. Accept the limit and target people who use Claude Code at least daily (the feed file covers them anyway).
-2. Find a usage source that Claude Desktop itself exposes. Desktop's own session is stored by Electron and isn't usable as-is. Needs a spike.
-3. Ask Anthropic for a supported usage API or a Desktop status hook (#41456).
-4. Run paceline-desktop's own sign-in. This means impersonating Claude Code's OAuth client, which is fragile and likely against the terms. Not recommended.
-
-Before any public release, also confirm that reading Claude Code's stored token from a separate local app is acceptable under Anthropic's terms.
+Before any public release, confirm that reading Claude Code's stored token from a separate local app is acceptable under Anthropic's terms. If it isn't, paceline-tray can ship with the feed file as its only source.
 
 ## Sharing the pace math with paceline
 
@@ -108,14 +110,14 @@ paceline's budget math lives in `internal/pace`, which another module can't impo
 
 Two details matter once both tools compute a budget:
 
-- **Share the day anchor.** paceline anchors today's budget in `$CLAUDE_CONFIG_DIR/paceline-day.json` at the first render of the day. paceline-desktop should read and write the same file through the same exported functions, so the tray and the status line always show the same budget. paceline already writes it atomically, so concurrent writers are safe.
+- **Share the day anchor.** paceline anchors today's budget in `$CLAUDE_CONFIG_DIR/paceline-day.json` at the first render of the day. paceline-tray should read and write the same file through the same exported functions, so the tray and the status line always show the same budget. paceline already writes it atomically, so concurrent writers are safe.
 - **Normalize `resetsAt` to whole Unix seconds in every source.** The snapshot treats a changed `resetsAt` as a new week and re-anchors the day. The OAuth endpoint returns an ISO 8601 string that may carry fractional seconds, while the status payload sends whole seconds. If they differ by even a fraction, alternating between the feed and OAuth would reset today's budget on every switch. A test must cover this.
 
 ## Package layout
 
 ```
-paceline-desktop/
-  cmd/paceline-desk/     tray app: polling loop, single-instance lock
+paceline-tray/
+  cmd/paceline-tray/     tray app: polling loop, single-instance lock
   cmd/paceline-mcp/      stdio MCP server: reads state only
   internal/usage/        Usage, Window, Source, First           (exists)
   internal/usage/feed/   reads paceline-feed.json
@@ -140,7 +142,7 @@ paceline-desktop/
 | Autostart | `HKCU\...\Run` on Windows, a LaunchAgent plist on macOS, an XDG `.desktop` file on Linux |
 | Credentials | file read on Windows and Linux; on macOS, the `security` CLI or `zalando/go-keyring` |
 | MCP | `modelcontextprotocol/go-sdk` over stdio |
-| MCP distribution | an `.mcpb` Desktop extension for one-click install |
+| MCP distribution | a documented `claude mcp add` command; a Claude Code plugin later if it earns its place |
 | Notifications (later) | `gen2brain/beeep` |
 
 Every third-party module must be added to `allowedModules` in `internal/policy`, with its reason, or the tests fail.
@@ -148,7 +150,7 @@ Every third-party module must be added to `allowedModules` in `internal/policy`,
 ## Build and release
 
 - **macOS needs cgo for the tray,** so darwin builds run on a macOS runner and are merged into a universal binary. Windows and Linux build without cgo.
-- **Sign everything** before a non-technical rollout: Apple Developer ID with notarization, and Authenticode or Azure Trusted Signing on Windows. Unsigned builds hit Gatekeeper and SmartScreen warnings.
+- **Sign everything** before a wide rollout: Apple Developer ID with notarization, and Authenticode or Azure Trusted Signing on Windows. Unsigned builds hit Gatekeeper and SmartScreen warnings.
 - Linux ships a tarball plus `.deb` and `.rpm` through GoReleaser's nFPM.
 - Versioning follows paceline: Conventional Commits, semantic-release on merge to `main`, GoReleaser for the binaries, and signed build provenance attestations. This is wired up in milestone 6, once there's a binary to release.
 
@@ -158,20 +160,18 @@ Every third-party module must be added to `allowedModules` in `internal/policy`,
 2. **Foundation** (started): `usage` and `state` packages with tests, and the import policy. Next: the feed source.
 3. **Tray MVP on Windows:** icon and menu from the state file, the single-instance lock, and the feed source only.
 4. **OAuth fallback:** `creds` per OS, the expiry-aware "open Claude Code" state, and backoff. Verify the Linux and macOS token locations.
-5. **MCP:** the `paceline-mcp` binary and `.mcpb` packaging.
+5. **MCP:** the `paceline-mcp` binary and its `claude mcp add` setup.
 6. **Release:** CI matrix with a macOS cgo build, signing, autostart, and cross-platform polish.
 
 ## Open questions
 
-- Is "use Claude Code at least once a day" an acceptable requirement for the first users? (See token expiry.)
 - Does Anthropic's usage endpoint report the same `seven_day` percentage as Claude Code's status payload? Compare the two side by side during milestone 4.
-- Does Claude Desktop expose any usage data locally that a companion app could read?
-- Is reading Claude Code's token from another local app acceptable under Anthropic's terms?
+- Is reading Claude Code's token from another local app acceptable under Anthropic's terms? If not, ship feed-only.
+- How should Claude use `get_today_budget`? A tool alone may go unused; it may need a skill or a `CLAUDE.md` line that tells Claude when to check.
 
 ## Sources
 
 - [paceline](https://github.com/rogadev/paceline)
-- [anthropics/claude-code#41456: Add status bar to Desktop App](https://github.com/anthropics/claude-code/issues/41456)
 - [anthropics/claude-code#22221: Expose plan usage limits for status line](https://github.com/anthropics/claude-code/issues/22221)
 - [Claude Code usage status line guide (OAuth endpoint, credential locations)](https://gist.github.com/jtbr/4f99671d1cee06b44106456958caba8b)
 - [claude-code-usage-bar (desktop HUD prior art)](https://github.com/leeguooooo/claude-code-usage-bar)

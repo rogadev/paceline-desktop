@@ -1,3 +1,3 @@
-module github.com/rogadev/paceline-desktop
+module github.com/rogadev/paceline-tray
 
 go 1.26.0
