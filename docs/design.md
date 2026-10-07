@@ -23,18 +23,18 @@ One binary, `paceline-tray`, for Windows, macOS, and Linux: a tray (menu bar) ap
 
 ### What the tray shows
 
-The pace-related parts of paceline:
+The pace-related parts of paceline, in the same words and colors as its status line, so the two never disagree:
 
-- Today's budget and how much of it is left, with the pace arrow (▲ room to push, ▼ ease off, ● about even).
-- Session (five-hour) and week percentages left, and their reset times.
+- How much of today's budget is used, and the budget itself, for example `today 13% of 8% budget`. Like the status line, it shows percentages used, so the number only climbs and an overshoot reads as more than 100%.
+- Session (five-hour) and week percentages used, and their reset times.
 - How fresh the reading is, and where it came from.
 
 Branch, project folder, context, cache, and duration segments are per-session, so they stay in the status line and are left out of the tray.
 
 Platform limits shape the display:
 
-- **Windows** shows only an icon and a tooltip in the tray, never text. The icon itself must carry the state: the arrow and a fill level, colored by headroom. The tooltip is capped at 127 characters, so it's the one-line summary, for example `▲ 54% left of today's 28% budget · 84% session · 96% week`.
-- **macOS** can also show a short title next to the icon (`SetTitle`), for example `▲ 54%`.
+- **Windows** shows only an icon and a tooltip in the tray, never text. The icon itself must carry the state: a fill level for today's budget used, colored green, yellow, or red by how much of it is left, the same thresholds the status line uses. The tooltip is capped at 127 characters, so it's the one-line summary, for example `session 18% · week 86% · today 13% of 8% budget`.
+- **macOS** can also show a short title next to the icon (`SetTitle`), for example `today 13%`.
 - **Linux** with stock GNOME hides tray icons unless the AppIndicator extension is installed. KDE, Xfce, and most others show them. The README must say this.
 
 The menu repeats the full line, the reset times, the data source and its age, "Refresh now", "Start at login", and "Quit".

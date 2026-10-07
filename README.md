@@ -7,10 +7,10 @@
 paceline's status line shows **today's budget** (the weekly percentage left divided by the days until your limit resets) under Claude Code's input box. You only see it while a Claude Code session is open and in front of you. paceline-tray keeps the same answer in your system tray, so you can check it before you start a session, while the terminal is hidden, or across several sessions at once.
 
 ```
-▲ 54% left of today's 28% budget · 84% session · 96% week
+session 18% · week 86% · today 13% of 8% budget
 ```
 
-The tray (menu bar) app shows the pace arrow and today's budget at all times, with session and week details in its menu.
+The tray (menu bar) app shows how much of today's budget you've used at all times, with session and week details in its menu.
 
 To let Claude check the budget itself, for example before it starts a long task, or so you can ask "how's my budget today?", use the budget tools in paceline's own MCP server. They don't need paceline-tray.
 
