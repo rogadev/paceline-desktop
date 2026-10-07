@@ -120,7 +120,7 @@ paceline-tray/
   cmd/paceline-tray/     tray app: polling loop, single-instance lock
   cmd/paceline-mcp/      stdio MCP server: reads state only
   internal/usage/        Usage, Window, Source, First           (exists)
-  internal/usage/feed/   reads paceline-feed.json
+  internal/usage/feed/   reads paceline-feed.json               (exists)
   internal/usage/oauth/  polls the usage endpoint; the only package allowed to use net/http
   internal/creds/        per-OS token lookup (build-tagged files); the only package allowed os/exec (macOS `security`)
   internal/state/        shared state file, atomic writes       (exists)
@@ -157,7 +157,7 @@ Every third-party module must be added to `allowedModules` in `internal/policy`,
 ## Milestones
 
 1. **In paceline:** export the pace math as a public package, add the opt-in feed file, and add a CI guard that `go list -deps ./cmd/paceline` never includes `net` or `os/exec`.
-2. **Foundation** (started): `usage` and `state` packages with tests, and the import policy. Next: the feed source.
+2. **Foundation** (done): `usage`, `state`, and the feed source, with tests, and the import policy.
 3. **Tray MVP on Windows:** icon and menu from the state file, the single-instance lock, and the feed source only.
 4. **OAuth fallback:** `creds` per OS, the expiry-aware "open Claude Code" state, and backoff. Verify the Linux and macOS token locations.
 5. **MCP:** the `paceline-mcp` binary and its `claude mcp add` setup.
