@@ -15,18 +15,11 @@ Give Claude Code users an answer to "how much of my weekly limit can I spend tod
 - With several sessions open, there's no single place to look.
 - Before the first session of the day, there's nothing to look at, which is exactly when you'd plan the day's work.
 
-paceline-tray fills those gaps with a tray icon that's always there, and lets Claude itself check the budget through an MCP server.
+paceline-tray fills those gaps with a tray icon that's always there. Claude itself checks the budget through tools in paceline's own MCP server (see [MCP tools](#mcp-tools)).
 
 ## Product shape
 
-Two binaries, for Windows, macOS, and Linux:
-
-| Binary | What it does |
-|---|---|
-| `paceline-tray` | A tray (menu bar) app. It owns polling, writes the shared state file, and shows the pace state at all times. |
-| `paceline-mcp` | A stdio MCP server that Claude Code launches. It answers "how's my budget today?" from the state file. |
-
-They're separate binaries because the tray app on Windows must be built with `-H windowsgui` (no console window), and an MCP server needs a working stdin and stdout.
+One binary, `paceline-tray`, for Windows, macOS, and Linux: a tray (menu bar) app. It owns polling, keeps the last reading in its state file so it survives a restart, and shows the pace state at all times. On Windows it's built with `-H windowsgui`, so no console window opens.
 
 ### What the tray shows
 
@@ -48,12 +41,14 @@ The menu repeats the full line, the reset times, the data source and its age, "R
 
 ### MCP tools
 
-`paceline-mcp` is registered with Claude Code (`claude mcp add paceline -- paceline-mcp`), so Claude can check the budget on its own, for example before it starts a long task or a batch of subagents, and you can ask it directly. Read-only, both answered from the state file:
+**Decision (October 6, 2026): the budget tools live in paceline's existing MCP server, not in this repo.** paceline already ships `paceline-mcp`, registered as `claude mcp add --scope user paceline`, with its progress tools. An earlier version of this design planned a second binary here with the same name and registration, which would have collided.
 
-- `get_usage`: session and week percentages, reset times, the source, and the reading's age.
+paceline's server gains two read-only tools, so Claude can check the budget on its own, for example before it starts a long task or a batch of subagents, and you can ask it directly:
+
+- `get_usage`: session and week percentages, reset times, and the reading's age.
 - `get_today_budget`: today's budget, spent, left, the pace direction, and the same freshness fields.
 
-**Decision: `paceline-mcp` never touches the network or the OAuth token.** The findings proposed that the MCP server fetch once when the state file is stale. Instead, it reports the staleness ("the tray app isn't running; this reading is 3 hours old") and suggests starting the tray app. This keeps the binary that Claude talks to free of network code and credentials, which the import policy test enforces (`net/http` is allowed only in `internal/usage/oauth`). It also removes the need for the two processes to coordinate polling.
+They answer from paceline's feed file and day anchor. Claude only calls them from inside a Claude Code session, where the status line keeps the feed fresh, so they don't need the tray's OAuth readings. The server stays free of network code and credentials, and paceline-tray isn't required for them to work.
 
 ## Data sources
 
@@ -118,14 +113,15 @@ Two details matter once both tools compute a budget:
 ```
 paceline-tray/
   cmd/paceline-tray/     tray app: polling loop, single-instance lock
-  cmd/paceline-mcp/      stdio MCP server: reads state only
   internal/usage/        Usage, Window, Source, First           (exists)
   internal/usage/feed/   reads paceline-feed.json               (exists)
   internal/usage/oauth/  polls the usage endpoint; the only package allowed to use net/http
   internal/creds/        per-OS token lookup (build-tagged files); the only package allowed os/exec (macOS `security`)
   internal/state/        shared state file, atomic writes       (exists)
-  internal/tray/         icon rendering, menu, autostart
-  internal/mcpserver/    MCP tool definitions
+  internal/budget/       today's budget from a reading, through paceline's exported pace math
+  internal/poll/         picks the best reading from the sources and saves it
+  internal/tray/         icon rendering, tooltip and menu text, menu
+  internal/autostart/    start at login, per OS
   internal/policy/       import and dependency rules            (exists)
 ```
 
@@ -135,14 +131,12 @@ paceline-tray/
 |---|---|
 | Language | Go 1.26, matching paceline |
 | HTTP | `net/http`, confined to `internal/usage/oauth` |
-| State and IPC | JSON file with temp-file-and-rename writes; the tray polls the file's modification time rather than adding `fsnotify` |
+| State | JSON file with temp-file-and-rename writes; the tray polls the feed file's modification time rather than adding `fsnotify` |
 | Single instance | `gofrs/flock` on a lock file next to the state file |
 | Tray | `fyne.io/systray`: Win32 and D-Bus StatusNotifierItem without cgo, Cocoa with cgo |
 | Icons | stdlib `image`, drawn at runtime and encoded as PNG or ICO |
 | Autostart | `HKCU\...\Run` on Windows, a LaunchAgent plist on macOS, an XDG `.desktop` file on Linux |
 | Credentials | file read on Windows and Linux; on macOS, the `security` CLI or `zalando/go-keyring` |
-| MCP | `modelcontextprotocol/go-sdk` over stdio |
-| MCP distribution | a documented `claude mcp add` command; a Claude Code plugin later if it earns its place |
 | Notifications (later) | `gen2brain/beeep` |
 
 Every third-party module must be added to `allowedModules` in `internal/policy`, with its reason, or the tests fail.
@@ -160,7 +154,7 @@ Every third-party module must be added to `allowedModules` in `internal/policy`,
 2. **Foundation** (done): `usage`, `state`, and the feed source, with tests, and the import policy.
 3. **Tray MVP on Windows:** icon and menu from the state file, the single-instance lock, and the feed source only.
 4. **OAuth fallback:** `creds` per OS, the expiry-aware "open Claude Code" state, and backoff. Verify the Linux and macOS token locations.
-5. **MCP:** the `paceline-mcp` binary and its `claude mcp add` setup.
+5. **MCP, in paceline:** `get_usage` and `get_today_budget` in paceline's existing `paceline-mcp`.
 6. **Release:** CI matrix with a macOS cgo build, signing, autostart, and cross-platform polish.
 
 ## Open questions
